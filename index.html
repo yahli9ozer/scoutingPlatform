@@ -3,59 +3,55 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Scouting Platform</title>
+    <title>Scouting Platform Live</title>
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
     <style>
         body { background-color: #f8f9fa; padding: 20px; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; }
-        .dashboard-header { margin-bottom: 30px; }
+        th, td { text-align: right; vertical-align: middle; }
         
-        /* Status Badges */
-        .status-v { background-color: #d1e7dd; color: #0f5132; font-weight: bold; border-radius: 4px; padding: 2px 8px; }
-        .status-x { background-color: #f8d7da; color: #842029; font-weight: bold; border-radius: 4px; padding: 2px 8px; }
-        .status-q { background-color: #fff3cd; color: #664d03; font-weight: bold; border-radius: 4px; padding: 2px 8px; }
+        /* Badges */
+        .status-v { background-color: #d1e7dd; color: #0f5132; padding: 2px 8px; border-radius: 4px; font-weight: bold; }
+        .status-x { background-color: #f8d7da; color: #842029; padding: 2px 8px; border-radius: 4px; font-weight: bold; }
+        .status-q { background-color: #fff3cd; color: #664d03; padding: 2px 8px; border-radius: 4px; font-weight: bold; }
         
-        /* Table Styling */
-        .player-row:hover { background-color: #e9ecef; cursor: pointer; }
-        .tm-link { text-decoration: none; color: white; background: #002d72; padding: 5px 10px; border-radius: 4px; font-size: 0.8em; }
-        .tm-link:hover { background: #001f4d; color: white; }
-        
-        /* Fix Table alignment for Hebrew */
-        th, td { text-align: right; }
+        /* Floating Button */
+        .add-btn { position: fixed; bottom: 30px; left: 30px; border-radius: 50%; width: 60px; height: 60px; font-size: 30px; box-shadow: 0 4px 10px rgba(0,0,0,0.3); z-index: 1000; }
     </style>
 </head>
 <body>
 
     <div class="container">
-        <div class="dashboard-header text-center">
-            <h1>⚽ Scouting Platform</h1>
-            <p class="text-muted">Upload the CSV file (UTF-8 encoding)</p>
-            <input type="file" id="uploadfile" class="form-control w-50 mx-auto" accept=".csv" />
-        </div>
+        <h1 class="text-center mb-4">⚽ Scouting Database</h1>
 
-        <div class="row mb-4 text-center" id="stats-area" style="display:none;">
-            <div class="col-md-4">
+        <div class="row mb-4 text-center">
+            <div class="col-md-6">
                 <div class="card p-3">
                     <h3>סה"כ שחקנים</h3>
                     <h2 id="total-count">0</h2>
                 </div>
             </div>
-            <div class="col-md-4">
+            <div class="col-md-6">
                 <div class="card p-3">
-                    <h3>מטרות (3+ אישורים)</h3>
+                    <h3>מטרות חמות (3+ אישורים)</h3>
                     <h2 id="top-targets-count" class="text-success">0</h2>
                 </div>
             </div>
         </div>
 
         <div class="card shadow-sm">
-            <div class="card-body p-0">
-                <table class="table table-hover mb-0" id="scouting-table">
+            <div class="table-responsive">
+                <table class="table table-hover mb-0">
                     <thead class="table-dark">
                         <tr>
                             <th>שם</th>
                             <th>עמדה</th>
-                            <th>יזהר</th> <th>רמי</th> <th>אבידן</th> <th>יהלי</th> <th>דאטה</th>
+                            <th>יזהר</th>
+                            <th>רמי</th>
+                            <th>אבידן</th>
+                            <th>יהלי</th>
+                            <th>דאטה</th>
                             <th>פרופיל</th>
+                            <th>מחיקה</th>
                         </tr>
                     </thead>
                     <tbody id="table-body">
@@ -65,86 +61,63 @@
         </div>
     </div>
 
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/PapaParse/5.3.0/papaparse.min.js"></script>
-    <script>
-        document.getElementById('uploadfile').addEventListener('change', function() {
-            const file = this.files[0];
-            Papa.parse(file, {
-                header: true, 
-                skipEmptyLines: true,
-                encoding: "UTF-8", // Ensures Hebrew characters are read correctly
-                complete: function(results) {
-                    console.log("First Row Data:", results.data[0]); // Check console for debugging
-                    renderTable(results.data);
-                }
-            });
-        });
+    <button class="btn btn-primary add-btn" data-bs-toggle="modal" data-bs-target="#addModal">+</button>
 
-        function renderTable(data) {
-            const tbody = document.getElementById('table-body');
-            tbody.innerHTML = ''; 
-            
-            let topTargets = 0;
+    <div class="modal fade" id="addModal" tabindex="-1">
+        <div class="modal-dialog">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title">הוספת שחקן חדש</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                </div>
+                <div class="modal-body">
+                    <form id="addPlayerForm">
+                        <div class="mb-3">
+                            <label class="form-label">שם השחקן *</label>
+                            <input type="text" id="pName" class="form-control" required>
+                        </div>
+                        <div class="mb-3">
+                            <label class="form-label">עמדה</label>
+                            <input type="text" id="pPos" class="form-control">
+                        </div>
+                        
+                        <div class="row g-2">
+                            <div class="col-6">
+                                <label class="small">יזהר</label>
+                                <select id="pS1" class="form-select"><option value="-">-</option><option value="V">V</option><option value="X">X</option><option value="?">?</option></select>
+                            </div>
+                            <div class="col-6">
+                                <label class="small">רמי</label>
+                                <select id="pS2" class="form-select"><option value="-">-</option><option value="V">V</option><option value="X">X</option><option value="?">?</option></select>
+                            </div>
+                            <div class="col-6">
+                                <label class="small">אבידן</label>
+                                <select id="pS3" class="form-select"><option value="-">-</option><option value="V">V</option><option value="X">X</option><option value="?">?</option></select>
+                            </div>
+                            <div class="col-6">
+                                <label class="small">יהלי</label>
+                                <select id="pS4" class="form-select"><option value="-">-</option><option value="V">V</option><option value="X">X</option><option value="?">?</option></select>
+                            </div>
+                        </div>
 
-            data.forEach(player => {
-                // MAPPING: Using the EXACT Hebrew headers from your screenshot
-                // Using trim() to remove accidental spaces in the CSV headers
-                
-                const name = player['שם'] || 'Unknown'; 
-                const position = player['עמדה'] || '-';
-                
-                // Scouters
-                const s1 = player['עובר את יזהר?'] || ''; 
-                const s2 = player['רמי'] || '';
-                const s3 = player['אבידן'] || '';
-                const s4 = player['יהלי'] || '';
-                
-                // Data Team
-                const dataRating = player['עובר דאטה?'] || '';
-                
-                // Link
-                const link = player['לינק'] || '#';
+                        <div class="mb-3 mt-3">
+                            <label class="form-label">דאטה</label>
+                            <select id="pData" class="form-select"><option value="-">-</option><option value="V">V</option><option value="X">X</option></select>
+                        </div>
+                        <div class="mb-3">
+                            <label class="form-label">לינק (Transfermarkt)</label>
+                            <input type="url" id="pLink" class="form-control">
+                        </div>
+                        
+                        <button type="submit" class="btn btn-success w-100 mt-2">שמור במאגר</button>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
 
-                // Calculate Score (counting 'V')
-                // We check for both English 'V' and Hebrew 'V' equivalents just in case
-                const scores = [s1, s2, s3, s4];
-                const vCount = scores.filter(x => x && (x.toUpperCase().includes('V') || x.includes('כן'))).length;
-                
-                if(vCount >= 3) topTargets++;
-
-                const tr = document.createElement('tr');
-                tr.className = 'player-row';
-                tr.innerHTML = `
-                    <td class="fw-bold">${name}</td>
-                    <td><span class="badge bg-secondary">${position}</span></td>
-                    <td>${renderBadge(s1)}</td>
-                    <td>${renderBadge(s2)}</td>
-                    <td>${renderBadge(s3)}</td>
-                    <td>${renderBadge(s4)}</td>
-                    <td>${renderBadge(dataRating)}</td>
-                    <td>
-                        ${link && link !== '#' ? `<a href="${link}" target="_blank" class="tm-link">Transfermarkt</a>` : '-'}
-                    </td>
-                `;
-                tbody.appendChild(tr);
-            });
-
-            document.getElementById('stats-area').style.display = 'flex';
-            document.getElementById('total-count').innerText = data.length;
-            document.getElementById('top-targets-count').innerText = topTargets;
-        }
-
-        function renderBadge(value) {
-            if (!value) return '<span class="text-muted">-</span>';
-            const v = value.toString().toUpperCase().trim();
-            
-            // Check for English 'V' or perhaps Hebrew equivalent if they type differently
-            if (v === 'V' || v === 'כן') return '<span class="status-v">✔</span>';
-            if (v === 'X' || v === 'לא') return '<span class="status-x">✖</span>';
-            if (v === '?' || v.includes('מתלבט')) return '<span class="status-q">❓</span>';
-            
-            return value; 
-        }
-    </script>
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+    
+    <script type="module" src="app.js"></script>
 </body>
 </html>
