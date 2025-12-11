@@ -1,12 +1,12 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="he" dir="rtl">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Scouting Dashboard</title>
+    <title>Scouting Platform</title>
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
     <style>
-        body { background-color: #f8f9fa; padding: 20px; }
+        body { background-color: #f8f9fa; padding: 20px; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; }
         .dashboard-header { margin-bottom: 30px; }
         
         /* Status Badges */
@@ -18,6 +18,9 @@
         .player-row:hover { background-color: #e9ecef; cursor: pointer; }
         .tm-link { text-decoration: none; color: white; background: #002d72; padding: 5px 10px; border-radius: 4px; font-size: 0.8em; }
         .tm-link:hover { background: #001f4d; color: white; }
+        
+        /* Fix Table alignment for Hebrew */
+        th, td { text-align: right; }
     </style>
 </head>
 <body>
@@ -25,20 +28,20 @@
     <div class="container">
         <div class="dashboard-header text-center">
             <h1>⚽ Scouting Platform</h1>
-            <p class="text-muted">Upload the latest CSV export from SharePoint</p>
+            <p class="text-muted">Upload the CSV file (UTF-8 encoding)</p>
             <input type="file" id="uploadfile" class="form-control w-50 mx-auto" accept=".csv" />
         </div>
 
         <div class="row mb-4 text-center" id="stats-area" style="display:none;">
             <div class="col-md-4">
                 <div class="card p-3">
-                    <h3>Total Players</h3>
+                    <h3>סה"כ שחקנים</h3>
                     <h2 id="total-count">0</h2>
                 </div>
             </div>
             <div class="col-md-4">
                 <div class="card p-3">
-                    <h3>Top Targets (3+ Vs)</h3>
+                    <h3>מטרות (3+ אישורים)</h3>
                     <h2 id="top-targets-count" class="text-success">0</h2>
                 </div>
             </div>
@@ -49,14 +52,10 @@
                 <table class="table table-hover mb-0" id="scouting-table">
                     <thead class="table-dark">
                         <tr>
-                            <th>Name</th>
-                            <th>Position</th>
-                            <th>Scout 1</th>
-                            <th>Scout 2</th>
-                            <th>Scout 3</th>
-                            <th>Scout 4</th>
-                            <th>Data Team</th>
-                            <th>Profile</th>
+                            <th>שם</th>
+                            <th>עמדה</th>
+                            <th>יזהר</th> <th>רמי</th> <th>אבידן</th> <th>יהלי</th> <th>דאטה</th>
+                            <th>פרופיל</th>
                         </tr>
                     </thead>
                     <tbody id="table-body">
@@ -71,9 +70,11 @@
         document.getElementById('uploadfile').addEventListener('change', function() {
             const file = this.files[0];
             Papa.parse(file, {
-                header: true, // Assumes Row 1 has headers like "Name", "Position", etc.
+                header: true, 
                 skipEmptyLines: true,
+                encoding: "UTF-8", // Ensures Hebrew characters are read correctly
                 complete: function(results) {
+                    console.log("First Row Data:", results.data[0]); // Check console for debugging
                     renderTable(results.data);
                 }
             });
@@ -81,30 +82,34 @@
 
         function renderTable(data) {
             const tbody = document.getElementById('table-body');
-            tbody.innerHTML = ''; // Clear existing data
+            tbody.innerHTML = ''; 
             
             let topTargets = 0;
 
             data.forEach(player => {
-                // Adjust these keys to match your EXACT CSV Headers
-                // If your CSV has no headers, we access by index (row[0], row[1])
-                const name = player['Name'] || player[0] || 'Unknown'; 
-                const position = player['Position'] || player[1] || '-';
+                // MAPPING: Using the EXACT Hebrew headers from your screenshot
+                // Using trim() to remove accidental spaces in the CSV headers
                 
-                // Scouts (Columns C, D, E, F)
-                const s1 = player['Scout 1'] || player[2] || ''; 
-                const s2 = player['Scout 2'] || player[3] || '';
-                const s3 = player['Scout 3'] || player[4] || '';
-                const s4 = player['Scout 4'] || player[5] || '';
+                const name = player['שם'] || 'Unknown'; 
+                const position = player['עמדה'] || '-';
                 
-                // Data (Column G)
-                const dataRating = player['Data'] || player[6] || '';
+                // Scouters
+                const s1 = player['עובר את יזהר?'] || ''; 
+                const s2 = player['רמי'] || '';
+                const s3 = player['אבידן'] || '';
+                const s4 = player['יהלי'] || '';
                 
-                // Link (Column P - assuming it's roughly the 15th index if no header)
-                const link = player['Transfermarkt'] || player[15] || '#';
+                // Data Team
+                const dataRating = player['עובר דאטה?'] || '';
+                
+                // Link
+                const link = player['לינק'] || '#';
 
-                // Calculate "Score" (Just for stats)
-                const vCount = [s1, s2, s3, s4].filter(x => x && x.toUpperCase() === 'V').length;
+                // Calculate Score (counting 'V')
+                // We check for both English 'V' and Hebrew 'V' equivalents just in case
+                const scores = [s1, s2, s3, s4];
+                const vCount = scores.filter(x => x && (x.toUpperCase().includes('V') || x.includes('כן'))).length;
+                
                 if(vCount >= 3) topTargets++;
 
                 const tr = document.createElement('tr');
@@ -118,26 +123,27 @@
                     <td>${renderBadge(s4)}</td>
                     <td>${renderBadge(dataRating)}</td>
                     <td>
-                        ${link && link !== '#' ? `<a href="${link}" target="_blank" class="tm-link">Open TM</a>` : '-'}
+                        ${link && link !== '#' ? `<a href="${link}" target="_blank" class="tm-link">Transfermarkt</a>` : '-'}
                     </td>
                 `;
                 tbody.appendChild(tr);
             });
 
-            // Update Stats
             document.getElementById('stats-area').style.display = 'flex';
             document.getElementById('total-count').innerText = data.length;
             document.getElementById('top-targets-count').innerText = topTargets;
         }
 
-        // Helper function to turn text into badges
         function renderBadge(value) {
             if (!value) return '<span class="text-muted">-</span>';
-            const v = value.toUpperCase().trim();
-            if (v === 'V') return '<span class="status-v">✔ Approved</span>';
-            if (v === 'X') return '<span class="status-x">✖ Rejected</span>';
-            if (v === '?') return '<span class="status-q">❓ Pending</span>';
-            return value; // Return raw text if it's something else
+            const v = value.toString().toUpperCase().trim();
+            
+            // Check for English 'V' or perhaps Hebrew equivalent if they type differently
+            if (v === 'V' || v === 'כן') return '<span class="status-v">✔</span>';
+            if (v === 'X' || v === 'לא') return '<span class="status-x">✖</span>';
+            if (v === '?' || v.includes('מתלבט')) return '<span class="status-q">❓</span>';
+            
+            return value; 
         }
     </script>
 </body>
