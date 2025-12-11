@@ -160,52 +160,104 @@ if(form) {
     });
 }
 
-// --- RENDER TABLE ---
+// --- GLOBAL VARIABLES ---
+let allPlayersData = []; // Store raw data here
+
+// --- LISTEN TO DATABASE ---
 onSnapshot(playersCol, (snapshot) => {
+    // 1. Save data to our global array whenever DB changes
+    allPlayersData = snapshot.docs.map(doc => ({
+        id: doc.id,
+        ...doc.data()
+    }));
+    
+    // 2. Run the filter logic immediately to show data
+    applyFilters();
+});
+
+// --- FILTER LOGIC ---
+// Listen to inputs: Run filtering whenever user types or changes a dropdown
+['filterLeague', 'filterAgeMin', 'filterAgeMax', 'filterS1', 'filterS2', 'filterS3', 'filterS4'].forEach(id => {
+    document.getElementById(id).addEventListener('input', applyFilters);
+});
+
+function applyFilters() {
+    // A. Get values from inputs
+    const leagueSearch = document.getElementById('filterLeague').value.toLowerCase();
+    const ageMin = parseInt(document.getElementById('filterAgeMin').value) || 0;
+    const ageMax = parseInt(document.getElementById('filterAgeMax').value) || 100;
+    
+    const s1Filter = document.getElementById('filterS1').value; // Izhar
+    const s2Filter = document.getElementById('filterS2').value; // Rami
+    const s3Filter = document.getElementById('filterS3').value; // Avidan
+    const s4Filter = document.getElementById('filterS4').value; // Yahli
+
+    // B. Filter the Global Array
+    const filteredList = allPlayersData.filter(p => {
+        // 1. League Filter (Text contains)
+        const pLeague = (p.league || "").toLowerCase();
+        if (leagueSearch && !pLeague.includes(leagueSearch)) return false;
+
+        // 2. Age Filter
+        const pAge = parseInt(p.age) || 0;
+        // Only filter by age if the player actually has an age listed, otherwise show them? 
+        // Or hide unknown ages? Let's show unknown ages only if no filter is set.
+        if (document.getElementById('filterAgeMin').value && pAge < ageMin) return false;
+        if (document.getElementById('filterAgeMax').value && pAge > ageMax) return false;
+
+        // 3. Scout Filters (The "AND" Logic)
+        // If filter is "V", player MUST be "V". If filter is empty, ignore.
+        if (s1Filter && p.s1 !== s1Filter) return false;
+        if (s2Filter && p.s2 !== s2Filter) return false;
+        if (s3Filter && p.s3 !== s3Filter) return false;
+        if (s4Filter && p.s4 !== s4Filter) return false;
+
+        return true; // Passed all tests
+    });
+
+    // C. Render the result
+    renderTable(filteredList);
+}
+
+// --- RENDER FUNCTION (Separated) ---
+function renderTable(dataList) {
     const tbody = document.getElementById('table-body');
     tbody.innerHTML = ''; 
     let topTargets = 0;
 
-    snapshot.forEach((docSnap) => {
-        const p = docSnap.data();
-        const id = docSnap.id; 
-
+    dataList.forEach((p) => {
+        // Count V's
         const scores = [p.s1, p.s2, p.s3, p.s4];
         const vCount = scores.filter(x => x === 'V').length;
         if(vCount >= 3) topTargets++;
 
         const tr = document.createElement('tr');
         tr.innerHTML = `
-            <td class="fw-bold">${p.name}</td>
-            <td>${p.age || '-'}</td>
-            <td><span class="badge bg-light text-dark border">${p.league || '-'}</span></td>
-            <td>${p.position}</td>
-            <td>${renderBadge(p.s1)}</td>
-            <td>${renderBadge(p.s2)}</td>
-            <td>${renderBadge(p.s3)}</td>
-            <td>${renderBadge(p.s4)}</td>
-            <td>${renderBadge(p.data)}</td>
-            <td>${p.link ? `<a href="${p.link}" target="_blank" class="btn btn-sm btn-primary">Link</a>` : '-'}</td>
+            <td class="fw-bold player-name">${p.name}</td>
+            <td><span class="badge badge-league text-dark">${p.age || '-'}</span></td>
+            <td>${p.league || '-'}</td>
+            <td><span class="badge badge-pos">${p.position || '-'}</span></td>
+            
+            <td class="text-center">${renderBadge(p.s1)}</td>
+            <td class="text-center">${renderBadge(p.s2)}</td>
+            <td class="text-center">${renderBadge(p.s3)}</td>
+            <td class="text-center">${renderBadge(p.s4)}</td>
+            <td class="text-center">${renderBadge(p.data)}</td>
+            
             <td>
-                <button class="btn btn-sm btn-outline-danger" onclick="window.deletePlayer('${id}')">🗑</button>
+                ${p.link ? `<a href="${p.link}" target="_blank" class="btn-tm">Link</a>` : '-'}
+            </td>
+            <td>
+                <button class="btn btn-sm text-danger border-0" onclick="window.deletePlayer('${p.id}')">✕</button>
             </td>
         `;
         tbody.appendChild(tr);
     });
 
-    document.getElementById('total-count').innerText = snapshot.size;
+    // Update Stats based on CURRENT VIEW
+    document.getElementById('total-count').innerText = dataList.length;
     document.getElementById('top-targets-count').innerText = topTargets;
-});
-
-window.deletePlayer = async (id) => {
-    if(confirm("למחוק שחקן זה?")) {
-        await deleteDoc(doc(db, "players", id));
-    }
-}
-
-function renderBadge(val) {
-    if(val === 'V') return '<span class="status-v">V</span>';
-    if(val === 'X') return '<span class="status-x">X</span>';
-    if(val === '?') return '<span class="status-q">?</span>';
-    return '<span class="text-muted">-</span>';
+    
+    // Show empty message if needed
+    document.getElementById('empty-msg').style.display = dataList.length === 0 ? 'block' : 'none';
 }
