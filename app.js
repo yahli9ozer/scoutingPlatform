@@ -22,96 +22,100 @@ const playersCol = collection(db, "players");
 
 
 
-// --- AUTO FILL LOGIC (SMARTER VERSION) ---
+// --- AUTO FILL LOGIC (VIA GOOGLE PROXY) ---
 const btnFetch = document.getElementById('btnFetch');
 const inputLink = document.getElementById('pLink');
+
+// ⚠️ PASTE YOUR GOOGLE SCRIPT URL HERE ⚠️
+const MY_PROXY_URL = "https://script.google.com/macros/s/AKfycbyzu1vV2RTxhlGf8lklgjk2kBYp7V9YEBs9LTuVjqsllTeX9oe6rIWRutxcae8Ul-9a/exec"; 
 
 if(btnFetch) {
     btnFetch.addEventListener('click', async () => {
         const url = inputLink.value;
         if(!url) { alert("נא להדביק לינק קודם"); return; }
 
-        // 1. Loading State
+        // Loading UI
         btnFetch.classList.add('loading');
         btnFetch.disabled = true;
         const originalText = btnFetch.innerHTML;
         btnFetch.innerHTML = `<span class="spinner-border spinner-border-sm" role="status"></span> מחפש...`;
 
         try {
-            // 2. Use AllOrigins (Returns JSON, often bypasses blocks better)
-            const proxyUrl = `https://api.allorigins.win/get?url=${encodeURIComponent(url)}`;
-            
-            const response = await fetch(proxyUrl);
+            // 1. Call YOUR Google Script
+            const finalUrl = `${MY_PROXY_URL}?url=${encodeURIComponent(url)}`;
+            const response = await fetch(finalUrl);
             const data = await response.json();
-            
-            if (!data.contents) throw new Error("ריק");
 
-            // 3. Parse HTML
+            if (data.error) throw new Error("Google Script Error: " + data.error);
+            if (!data.html) throw new Error("Empty result");
+
+            // 2. Parse the HTML
             const parser = new DOMParser();
-            const doc = parser.parseFromString(data.contents, "text/html");
+            const doc = parser.parseFromString(data.html, "text/html");
 
-            // --- STRATEGY A: META TAGS (Most Reliable) ---
-            // Example Description: "Dominik Szoboszlai, 24, from Hungary... "
+            // --- EXTRACTION LOGIC ---
+            
+            // A. NAME
             let name = "";
+            const h1 = doc.querySelector('h1');
+            if (h1) {
+                // Remove the #number if it exists
+                let cleanName = h1.innerText.replace(/#\d+/, '').trim();
+                // Sometimes Transfermarkt repeats the name in strong tags, just clean it up
+                name = cleanName.replace(/\s+/g, ' '); 
+            }
+
+            // B. AGE
+            // Strategy: Look for the specific "Age:" label in the table
             let age = "";
-            let league = "";
-            let position = "";
-
-            const metaDesc = doc.querySelector('meta[name="description"]')?.content || "";
-            const ogTitle = doc.querySelector('meta[property="og:title"]')?.content || "";
-
-            console.log("Debug Meta:", metaDesc); // Check console if it fails
-
-            if (metaDesc) {
-                // NAME: usually the first words before the first comma
-                const parts = metaDesc.split(','); 
-                if(parts.length > 0) name = parts[0].trim();
-
-                // AGE: usually the second part "Dominik Szoboszlai, 24, from..."
-                if(parts.length > 1) {
-                    const potentialAge = parts[1].trim();
-                    if(!isNaN(potentialAge)) age = potentialAge;
+            const labels = Array.from(doc.querySelectorAll('.info-table__content--regular'));
+            const ageLabel = labels.find(el => el.innerText.includes('Date of birth/Age'));
+            if(ageLabel) {
+                // The value is usually in the NEXT sibling or inside the same container
+                const val = ageLabel.nextElementSibling?.innerText || ageLabel.innerText;
+                // Look for number in parens (24)
+                const match = val.match(/\((\d+)\)/); 
+                if(match) age = match[1];
+            }
+            // Fallback for Age (Microdata)
+            if(!age) {
+                const birthSpan = doc.querySelector('[itemprop="birthDate"]');
+                if(birthSpan) {
+                     const match = birthSpan.innerText.match(/\((\d+)\)/);
+                     if(match) age = match[1];
                 }
             }
 
-            // Fallback for Name if Meta failed (Title usually: "Dominik Szoboszlai - Player profile...")
-            if (!name && ogTitle) {
-                name = ogTitle.split('-')[0].trim();
+            // C. LEAGUE
+            let league = "";
+            const leagueHeader = doc.querySelector('.data-header__league');
+            if(leagueHeader) league = leagueHeader.innerText.trim();
+
+            // D. POSITION
+            let position = "";
+            const posLabel = labels.find(el => el.innerText.includes('Position'));
+            if(posLabel) {
+                 position = posLabel.nextElementSibling?.innerText.trim();
             }
 
-            // --- STRATEGY B: VISIBLE HTML (Fallback) ---
-            // If Meta tags didn't give us everything, try the visual elements
-            if (!league) {
-                const leagueHeader = doc.querySelector('.data-header__league');
-                if (leagueHeader) league = leagueHeader.innerText.trim();
-            }
-            
-            if (!position) {
-                 // Try to find position in the details box
-                 const labels = Array.from(doc.querySelectorAll('.data-header__label'));
-                 const posLabel = labels.find(el => el.innerText.includes('Position:'));
-                 if(posLabel) {
-                     position = posLabel.nextElementSibling?.innerText.trim();
-                 }
-            }
-
-            // --- 4. FILL INPUTS ---
+            // 3. FILL INPUTS
             if(name) document.getElementById('pName').value = name;
             if(age) document.getElementById('pAge').value = age;
             if(league) document.getElementById('pLeague').value = league;
             if(position) document.getElementById('pPos').value = position;
 
         } catch (error) {
-            console.error("Fetch Error:", error);
-            alert("Transfermarkt חסם את הבקשה או שהלינק לא תקין.\n\nטיפ: נסה למחוק את ה-Cookies או לנסות לינק אחר.");
+            console.error(error);
+            alert("לא הצלחנו למשוך נתונים. הלינק תקין? \n(הערה: אם זה קורה תמיד, Google נחסם זמנית על ידי Transfermarkt)");
         } finally {
-            // Reset Button
             btnFetch.classList.remove('loading');
             btnFetch.disabled = false;
             btnFetch.innerHTML = originalText;
         }
     });
 }
+
+
 
 // --- SAVE PLAYER (Standard) ---
 const form = document.getElementById('addPlayerForm');
