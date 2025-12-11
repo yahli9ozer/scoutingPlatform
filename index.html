@@ -1,0 +1,89 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>SharePoint Excel Visualizer</title>
+    <style>
+        body { font-family: sans-serif; padding: 20px; max-width: 800px; margin: 0 auto; }
+        .controls { margin-bottom: 20px; padding: 20px; background: #f4f4f4; border-radius: 8px; }
+        canvas { box-shadow: 0 4px 6px rgba(0,0,0,0.1); margin-top: 20px; }
+    </style>
+</head>
+<body>
+
+    <h2>📊 Excel Data Visualizer</h2>
+    
+    <div class="controls">
+        <p><strong>Step 1:</strong> Select your Excel file (.xlsx)</p>
+        <input type="file" id="uploadfile" accept=".xlsx, .xls" />
+    </div>
+
+    <canvas id="myChart"></canvas>
+
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+
+    <script>
+        const input = document.getElementById('uploadfile');
+        
+        input.addEventListener('change', function() {
+            const file = this.files[0];
+            const reader = new FileReader();
+
+            reader.onload = function(e) {
+                const data = new Uint8Array(e.target.result);
+                const workbook = XLSX.read(data, {type: 'array'});
+
+                // Assuming data is in the FIRST sheet
+                const firstSheetName = workbook.SheetNames[0];
+                const worksheet = workbook.Sheets[firstSheetName];
+
+                // Convert sheet to JSON
+                const jsonData = XLSX.utils.sheet_to_json(worksheet);
+
+                console.log("Data loaded:", jsonData); // Check console to see your data structure
+                renderChart(jsonData);
+            };
+
+            reader.readAsArrayBuffer(file);
+        });
+
+        function renderChart(data) {
+            const ctx = document.getElementById('myChart').getContext('2d');
+
+            // ⚠️ CUSTOMIZE THIS: Map your Excel headers here
+            // Example assumes columns named "Month" and "Sales"
+            // If your excel has "Date" and "Value", change these keys below.
+            const labels = data.map(row => row.Month); 
+            const values = data.map(row => row.Sales);
+
+            // Destroy old chart if it exists
+            let chartStatus = Chart.getChart("myChart"); 
+            if (chartStatus != undefined) {
+                chartStatus.destroy();
+            }
+
+            new Chart(ctx, {
+                type: 'bar', // Try 'line', 'pie', 'doughnut'
+                data: {
+                    labels: labels,
+                    datasets: [{
+                        label: 'Data from Excel',
+                        data: values,
+                        backgroundColor: 'rgba(54, 162, 235, 0.6)',
+                        borderColor: 'rgba(54, 162, 235, 1)',
+                        borderWidth: 1
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    scales: {
+                        y: { beginAtZero: true }
+                    }
+                }
+            });
+        }
+    </script>
+</body>
+</html>
