@@ -21,12 +21,11 @@ const playersCol = collection(db, "players");
 
 
 
-
-// --- AUTO FILL LOGIC (VIA GOOGLE PROXY) ---
+// --- AUTO FILL LOGIC (With Country Support) ---
 const btnFetch = document.getElementById('btnFetch');
 const inputLink = document.getElementById('pLink');
 
-// ⚠️ PASTE YOUR GOOGLE SCRIPT URL HERE ⚠️
+// ⚠️ KEEP YOUR GOOGLE SCRIPT URL HERE
 const MY_PROXY_URL = "https://script.google.com/macros/s/AKfycbyzu1vV2RTxhlGf8lklgjk2kBYp7V9YEBs9LTuVjqsllTeX9oe6rIWRutxcae8Ul-9a/exec"; 
 
 if(btnFetch) {
@@ -34,9 +33,7 @@ if(btnFetch) {
         let url = inputLink.value;
         if(!url) { alert("נא להדביק לינק קודם"); return; }
 
-        // --- THE FIX: FORCE .COM ---
-        // This replaces .pt, .de, .co.uk, etc. with .com
-        // It ensures we always get the English page so our scraper works.
+        // Force .com (English)
         if (url.includes('transfermarkt')) {
             url = url.replace(/transfermarkt\.[a-z.]+(\/)/, 'transfermarkt.com$1');
         }
@@ -48,40 +45,29 @@ if(btnFetch) {
         btnFetch.innerHTML = `<span class="spinner-border spinner-border-sm" role="status"></span> מחפש...`;
 
         try {
-            // Call Proxy with the FIXED (.com) URL
             const finalUrl = `${MY_PROXY_URL}?url=${encodeURIComponent(url)}`;
             const response = await fetch(finalUrl);
             const data = await response.json();
 
-            if (data.error) throw new Error("Google Script Error: " + data.error);
             if (!data.html) throw new Error("Empty result");
 
-            // Parse HTML
             const parser = new DOMParser();
             const doc = parser.parseFromString(data.html, "text/html");
 
-            // --- EXTRACTION LOGIC (Now safer because it's always English) ---
-            
             // A. NAME
             let name = "";
             const h1 = doc.querySelector('h1');
-            if (h1) {
-                let cleanName = h1.innerText.replace(/#\d+/, '').trim();
-                name = cleanName.replace(/\s+/g, ' '); 
-            }
+            if (h1) name = h1.innerText.replace(/#\d+/, '').replace(/\s+/g, ' ').trim();
 
             // B. AGE
             let age = "";
-            // Look for "Date of birth/Age" (English label)
             const labels = Array.from(doc.querySelectorAll('.info-table__content--regular'));
             const ageLabel = labels.find(el => el.innerText.includes('Date of birth/Age')); 
-            
             if(ageLabel) {
                 const val = ageLabel.nextElementSibling?.innerText || ageLabel.innerText;
                 const match = val.match(/\((\d+)\)/); 
                 if(match) age = match[1];
             }
-            // Fallback (Microdata)
             if(!age) {
                 const birthSpan = doc.querySelector('[itemprop="birthDate"]');
                 if(birthSpan) {
@@ -90,23 +76,42 @@ if(btnFetch) {
                 }
             }
 
-            // C. LEAGUE
+            // C. LEAGUE & COUNTRY (New Logic)
             let league = "";
+            let country = "";
+
+            // 1. Get League Name
             const leagueHeader = doc.querySelector('.data-header__league');
             if(leagueHeader) league = leagueHeader.innerText.trim();
 
+            // 2. Get Country (Search for the flag image class 'flaggenrahmen')
+            // Usually located inside the club info or league info box
+            const flagImg = doc.querySelector('.data-header__club-info img.flaggenrahmen');
+            if (flagImg) {
+                country = flagImg.title; // e.g. "Brazil"
+            } else {
+                // Fallback: Check the league box for a flag
+                const leagueFlag = doc.querySelector('.data-header__league img');
+                if(leagueFlag) country = leagueFlag.title;
+            }
+
+            // Combine them: "Brazil - Serie B"
+            let finalLeagueString = league;
+            if (country && league) {
+                finalLeagueString = `${country} - ${league}`;
+            } else if (country && !league) {
+                 finalLeagueString = country; // Just country if no league found
+            }
+
             // D. POSITION
             let position = "";
-            // Look for "Position" (English label)
             const posLabel = labels.find(el => el.innerText.includes('Position'));
-            if(posLabel) {
-                 position = posLabel.nextElementSibling?.innerText.trim();
-            }
+            if(posLabel) position = posLabel.nextElementSibling?.innerText.trim();
 
             // FILL INPUTS
             if(name) document.getElementById('pName').value = name;
             if(age) document.getElementById('pAge').value = age;
-            if(league) document.getElementById('pLeague').value = league;
+            if(finalLeagueString) document.getElementById('pLeague').value = finalLeagueString;
             if(position) document.getElementById('pPos').value = position;
 
         } catch (error) {
