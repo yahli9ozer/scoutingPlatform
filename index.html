@@ -8,14 +8,14 @@
     <style>
         body { background-color: #f8f9fa; padding: 20px; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; }
         th, td { text-align: right; vertical-align: middle; }
-        
-        /* Badges */
         .status-v { background-color: #d1e7dd; color: #0f5132; padding: 2px 8px; border-radius: 4px; font-weight: bold; }
         .status-x { background-color: #f8d7da; color: #842029; padding: 2px 8px; border-radius: 4px; font-weight: bold; }
         .status-q { background-color: #fff3cd; color: #664d03; padding: 2px 8px; border-radius: 4px; font-weight: bold; }
-        
-        /* Floating Button */
         .add-btn { position: fixed; bottom: 30px; left: 30px; border-radius: 50%; width: 60px; height: 60px; font-size: 30px; box-shadow: 0 4px 10px rgba(0,0,0,0.3); z-index: 1000; }
+        
+        /* Loading Spinner for the fetch */
+        .spinner-border { width: 1.5rem; height: 1.5rem; display: none; }
+        .loading .spinner-border { display: inline-block; }
     </style>
 </head>
 <body>
@@ -32,7 +32,7 @@
             </div>
             <div class="col-md-6">
                 <div class="card p-3">
-                    <h3>מטרות חמות (3+ אישורים)</h3>
+                    <h3>מטרות חמות</h3>
                     <h2 id="top-targets-count" class="text-success">0</h2>
                 </div>
             </div>
@@ -44,7 +44,7 @@
                     <thead class="table-dark">
                         <tr>
                             <th>שם</th>
-                            <th>עמדה</th>
+                            <th>גיל</th> <th>ליגה</th> <th>עמדה</th>
                             <th>יזהר</th>
                             <th>רמי</th>
                             <th>אבידן</th>
@@ -54,8 +54,7 @@
                             <th>מחיקה</th>
                         </tr>
                     </thead>
-                    <tbody id="table-body">
-                        </tbody>
+                    <tbody id="table-body"></tbody>
                 </table>
             </div>
         </div>
@@ -72,44 +71,50 @@
                 </div>
                 <div class="modal-body">
                     <form id="addPlayerForm">
+                        
+                        <div class="alert alert-info p-2">
+                            <label class="small fw-bold">הדבק לינק ל-Transfermarkt</label>
+                            <div class="input-group">
+                                <input type="url" id="pLink" class="form-control" placeholder="https://www.transfermarkt.com/..." required>
+                                <button type="button" class="btn btn-dark" id="btnFetch">
+                                    <span class="spinner-border spinner-border-sm text-light" role="status"></span>
+                                    חפש נתונים
+                                </button>
+                            </div>
+                            <small class="text-muted">המערכת תמלא לבד את השם, גיל וליגה</small>
+                        </div>
+
                         <div class="mb-3">
-                            <label class="form-label">שם השחקן *</label>
+                            <label class="form-label">שם השחקן</label>
                             <input type="text" id="pName" class="form-control" required>
                         </div>
+                        
+                        <div class="row">
+                            <div class="col-6 mb-3">
+                                <label class="form-label">גיל</label>
+                                <input type="text" id="pAge" class="form-control">
+                            </div>
+                            <div class="col-6 mb-3">
+                                <label class="form-label">ליגה</label>
+                                <input type="text" id="pLeague" class="form-control">
+                            </div>
+                        </div>
+
                         <div class="mb-3">
                             <label class="form-label">עמדה</label>
                             <input type="text" id="pPos" class="form-control">
                         </div>
                         
-                        <div class="row g-2">
-                            <div class="col-6">
-                                <label class="small">יזהר</label>
-                                <select id="pS1" class="form-select"><option value="-">-</option><option value="V">V</option><option value="X">X</option><option value="?">?</option></select>
-                            </div>
-                            <div class="col-6">
-                                <label class="small">רמי</label>
-                                <select id="pS2" class="form-select"><option value="-">-</option><option value="V">V</option><option value="X">X</option><option value="?">?</option></select>
-                            </div>
-                            <div class="col-6">
-                                <label class="small">אבידן</label>
-                                <select id="pS3" class="form-select"><option value="-">-</option><option value="V">V</option><option value="X">X</option><option value="?">?</option></select>
-                            </div>
-                            <div class="col-6">
-                                <label class="small">יהלי</label>
-                                <select id="pS4" class="form-select"><option value="-">-</option><option value="V">V</option><option value="X">X</option><option value="?">?</option></select>
-                            </div>
+                        <div class="row g-2 mb-3">
+                            <div class="col-6"><label class="small">יזהר</label><select id="pS1" class="form-select"><option value="-">-</option><option value="V">V</option><option value="X">X</option><option value="?">?</option></select></div>
+                            <div class="col-6"><label class="small">רמי</label><select id="pS2" class="form-select"><option value="-">-</option><option value="V">V</option><option value="X">X</option><option value="?">?</option></select></div>
+                            <div class="col-6"><label class="small">אבידן</label><select id="pS3" class="form-select"><option value="-">-</option><option value="V">V</option><option value="X">X</option><option value="?">?</option></select></div>
+                            <div class="col-6"><label class="small">יהלי</label><select id="pS4" class="form-select"><option value="-">-</option><option value="V">V</option><option value="X">X</option><option value="?">?</option></select></div>
                         </div>
 
-                        <div class="mb-3 mt-3">
-                            <label class="form-label">דאטה</label>
-                            <select id="pData" class="form-select"><option value="-">-</option><option value="V">V</option><option value="X">X</option></select>
-                        </div>
-                        <div class="mb-3">
-                            <label class="form-label">לינק (Transfermarkt)</label>
-                            <input type="url" id="pLink" class="form-control">
-                        </div>
+                        <div class="mb-3"><label class="form-label">דאטה</label><select id="pData" class="form-select"><option value="-">-</option><option value="V">V</option><option value="X">X</option></select></div>
                         
-                        <button type="submit" class="btn btn-success w-100 mt-2">שמור במאגר</button>
+                        <button type="submit" class="btn btn-success w-100">שמור במאגר</button>
                     </form>
                 </div>
             </div>
@@ -117,7 +122,6 @@
     </div>
 
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
-    
     <script type="module" src="app.js"></script>
 </body>
 </html>
