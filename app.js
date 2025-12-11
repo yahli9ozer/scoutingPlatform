@@ -2,7 +2,9 @@ import { initializeApp } from "https://www.gstatic.com/firebasejs/9.6.1/firebase
 import { getFirestore, collection, addDoc, onSnapshot, deleteDoc, doc } 
 from "https://www.gstatic.com/firebasejs/9.6.1/firebase-firestore.js";
 
-// ⚠️ PASTE YOUR FIREBASE CONFIG HERE
+// ------------------------------------------------------------------
+// ⚠️ PASTE YOUR FIREBASE CONFIG HERE ⚠️
+// ------------------------------------------------------------------
 const firebaseConfig = {
   apiKey: "AIzaSyDXtG1lqiC8l4OL8z2fIfLFVwU2tNXGO84",
   authDomain: "coutingplatform.firebaseapp.com",
@@ -11,11 +13,13 @@ const firebaseConfig = {
   messagingSenderId: "539720969654",
   appId: "1:539720969654:web:3a0f3c9be02a6d5fc8a517"
 };
+
+// Initialize Firebase
 const app = initializeApp(firebaseConfig);
 const db = getFirestore(app);
 const playersCol = collection(db, "players");
 
-// --- AUTO FILL LOGIC (THE SCRAPER) ---
+// --- AUTO FILL LOGIC (UPDATED FOR YOUR HTML) ---
 const btnFetch = document.getElementById('btnFetch');
 const inputLink = document.getElementById('pLink');
 
@@ -27,97 +31,113 @@ if(btnFetch) {
         // Start Loading Animation
         btnFetch.classList.add('loading');
         btnFetch.disabled = true;
+        const originalText = btnFetch.innerHTML;
+        btnFetch.innerHTML = `<span class="spinner-border spinner-border-sm" role="status"></span> טוען...`;
 
         try {
-            // Use AllOrigins Proxy to bypass CORS security
-            const proxyUrl = `https://api.allorigins.win/get?url=${encodeURIComponent(url)}`;
-            const response = await fetch(proxyUrl);
-            const data = await response.json();
+            // using corsproxy.io (often faster/better than allorigins)
+            const proxyUrl = `https://corsproxy.io/?${encodeURIComponent(url)}`;
             
-            if(!data.contents) throw new Error("No data found");
-
+            const response = await fetch(proxyUrl);
+            if (!response.ok) throw new Error("Network response was not ok");
+            
+            const htmlText = await response.text();
+            
             // Convert text to HTML Document
             const parser = new DOMParser();
-            const doc = parser.parseFromString(data.contents, "text/html");
+            const doc = parser.parseFromString(htmlText, "text/html");
 
-            // --- 1. GET NAME ---
-            // Transfermarkt usually puts name in <h1>. We remove the jersey number if present.
+            // --- 1. GET NAME (Fix: Remove Shirt Number #8) ---
             let name = "Unknown";
-            const h1 = doc.querySelector('h1');
-            if(h1) name = h1.innerText.replace(/^\d+\s*/, '').trim(); // Remove leading numbers
+            const headerBox = doc.querySelector('.data-header__headline-wrapper');
+            if(headerBox) {
+                // We clone the element to modify it without breaking anything
+                const clone = headerBox.cloneNode(true);
+                // Find and remove the shirt number span (e.g. #8)
+                const numberSpan = clone.querySelector('.data-header__shirt-number');
+                if(numberSpan) numberSpan.remove();
+                
+                name = clone.innerText.trim(); 
+                // Cleanup: remove extra spaces or newlines
+                name = name.replace(/\s+/g, ' ').trim();
+            }
 
-            // --- 2. GET AGE ---
-            // Look for "Age:" in the table cells
+            // --- 2. GET AGE (Fix: Extract from "(25)") ---
             let age = "";
-            const tableCells = doc.querySelectorAll('.info-table__content');
-            // Try to find specific cell that is typically the age
-            // Often logic requires searching text content because classes change
-            // Fallback: look for itemProp="birthDate"
-            const ageSpan = doc.querySelector('[itemprop="birthDate"]');
-            if(ageSpan) {
-                // Calculate age from birthdate
-                const birthDate = new Date(ageSpan.innerText.trim());
-                const diff = Date.now() - birthDate.getTime();
-                age = Math.floor(diff / (1000 * 60 * 60 * 24 * 365.25));
+            // Based on your HTML: <span itemprop="birthDate"> 25/10/2000 (25) </span>
+            const birthSpan = doc.querySelector('[itemprop="birthDate"]');
+            if(birthSpan) {
+                const text = birthSpan.innerText; // "25/10/2000 (25)"
+                const match = text.match(/\((\d+)\)/); // Regex to find number inside ()
+                if(match && match[1]) {
+                    age = match[1];
+                }
             }
 
             // --- 3. GET LEAGUE ---
             let league = "";
-            // Try to find league header
-            const leagueHeader = doc.querySelector('.data-header__league');
-            if(leagueHeader) {
-                league = leagueHeader.innerText.trim();
-            } else {
-                // Fallback attempt
-                const leagueLink = doc.querySelector('.data-header__club a');
-                if(leagueLink) league = leagueLink.innerText.trim();
+            // Based on your HTML: <span class="data-header__league">...Premier League...</span>
+            const leagueSpan = doc.querySelector('.data-header__league');
+            if(leagueSpan) {
+                league = leagueSpan.innerText.trim();
             }
 
-            // FILL THE INPUTS
+            // --- 4. FILL THE INPUTS ---
+            if(name === "Unknown" && age === "") {
+                throw new Error("Could not parse data");
+            }
+
             document.getElementById('pName').value = name;
             document.getElementById('pAge').value = age;
             document.getElementById('pLeague').value = league;
 
         } catch (error) {
             console.error(error);
-            alert("לא הצלחנו למשוך נתונים אוטומטית. נא למלא ידנית.");
+            alert("שגיאה במשיכת נתונים. ייתכן שהאתר חוסם גישה או שהלינק לא תקין.\nנא למלא ידנית.");
         } finally {
             // Stop Loading
             btnFetch.classList.remove('loading');
             btnFetch.disabled = false;
+            btnFetch.innerHTML = originalText;
         }
     });
 }
 
 
-// --- SAVE PLAYER ---
-document.getElementById('addPlayerForm').addEventListener('submit', async (e) => {
-    e.preventDefault();
-    
-    const newPlayer = {
-        name: document.getElementById('pName').value,
-        age: document.getElementById('pAge').value,     // New
-        league: document.getElementById('pLeague').value, // New
-        position: document.getElementById('pPos').value,
-        s1: document.getElementById('pS1').value,
-        s2: document.getElementById('pS2').value,
-        s3: document.getElementById('pS3').value,
-        s4: document.getElementById('pS4').value,
-        data: document.getElementById('pData').value,
-        link: document.getElementById('pLink').value,
-        timestamp: new Date()
-    };
+// --- SAVE PLAYER (Standard) ---
+const form = document.getElementById('addPlayerForm');
+if(form) {
+    form.addEventListener('submit', async (e) => {
+        e.preventDefault();
+        
+        const newPlayer = {
+            name: document.getElementById('pName').value,
+            age: document.getElementById('pAge').value,
+            league: document.getElementById('pLeague').value,
+            position: document.getElementById('pPos').value,
+            s1: document.getElementById('pS1').value,
+            s2: document.getElementById('pS2').value,
+            s3: document.getElementById('pS3').value,
+            s4: document.getElementById('pS4').value,
+            data: document.getElementById('pData').value,
+            link: document.getElementById('pLink').value,
+            timestamp: new Date()
+        };
 
-    try {
-        await addDoc(playersCol, newPlayer);
-        alert("שחקן נוסף!");
-        document.getElementById('addPlayerForm').reset();
-        const modal = bootstrap.Modal.getInstance(document.querySelector('#addModal'));
-        modal.hide();
-    } catch (e) {
-        alert("שגיאה בשמירה");
-    }
-});
+        try {
+            await addDoc(playersCol, newPlayer);
+            alert("שחקן נוסף בהצלחה!");
+            form.reset();
+            // Close Modal
+            const modalEl = document.querySelector('#addModal');
+            const modal = bootstrap.Modal.getInstance(modalEl);
+            modal.hide();
+        } catch (e) {
+            console.error("Error adding: ", e);
+            alert("שגיאה בשמירה: " + e.message);
+        }
+    });
+}
 
 // --- RENDER TABLE ---
 onSnapshot(playersCol, (snapshot) => {
@@ -157,7 +177,7 @@ onSnapshot(playersCol, (snapshot) => {
 });
 
 window.deletePlayer = async (id) => {
-    if(confirm("למחוק?")) {
+    if(confirm("למחוק שחקן זה?")) {
         await deleteDoc(doc(db, "players", id));
     }
 }
