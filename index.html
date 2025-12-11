@@ -3,77 +3,71 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>SharePoint Excel Visualizer</title>
+    <title>SharePoint CSV Visualizer</title>
     <style>
         body { font-family: sans-serif; padding: 20px; max-width: 800px; margin: 0 auto; }
-        .controls { margin-bottom: 20px; padding: 20px; background: #f4f4f4; border-radius: 8px; }
+        .controls { margin-bottom: 20px; padding: 20px; background: #e0f7fa; border-radius: 8px; border: 1px solid #b2ebf2; }
         canvas { box-shadow: 0 4px 6px rgba(0,0,0,0.1); margin-top: 20px; }
     </style>
 </head>
 <body>
 
-    <h2>📊 Excel Data Visualizer</h2>
+    <h2>📊 CSV Data Visualizer</h2>
     
     <div class="controls">
-        <p><strong>Step 1:</strong> Select your Excel file (.xlsx)</p>
-        <input type="file" id="uploadfile" accept=".xlsx, .xls" />
+        <p><strong>Step 1:</strong> Select your CSV file</p>
+        <input type="file" id="uploadfile" accept=".csv" />
     </div>
 
     <canvas id="myChart"></canvas>
 
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/PapaParse/5.3.0/papaparse.min.js"></script>
 
     <script>
         const input = document.getElementById('uploadfile');
         
         input.addEventListener('change', function() {
             const file = this.files[0];
-            const reader = new FileReader();
-
-            reader.onload = function(e) {
-                const data = new Uint8Array(e.target.result);
-                const workbook = XLSX.read(data, {type: 'array'});
-
-                // Assuming data is in the FIRST sheet
-                const firstSheetName = workbook.SheetNames[0];
-                const worksheet = workbook.Sheets[firstSheetName];
-
-                // Convert sheet to JSON
-                const jsonData = XLSX.utils.sheet_to_json(worksheet);
-
-                console.log("Data loaded:", jsonData); // Check console to see your data structure
-                renderChart(jsonData);
-            };
-
-            reader.readAsArrayBuffer(file);
+            
+            // PapaParse reads the file directly
+            Papa.parse(file, {
+                header: true, // Tells it the first row contains column names
+                dynamicTyping: true, // Automatically converts "123" to number 123
+                skipEmptyLines: true,
+                complete: function(results) {
+                    console.log("Parsed Data:", results.data);
+                    renderChart(results.data);
+                }
+            });
         });
 
         function renderChart(data) {
             const ctx = document.getElementById('myChart').getContext('2d');
 
-            // ⚠️ CUSTOMIZE THIS: Map your Excel headers here
-            // Example assumes columns named "Month" and "Sales"
-            // If your excel has "Date" and "Value", change these keys below.
+            // ⚠️ CUSTOMIZE THIS: Match your CSV headers
+            // This assumes your CSV looks like: 
+            // Month, Sales
+            // Jan, 100
             const labels = data.map(row => row.Month); 
             const values = data.map(row => row.Sales);
 
-            // Destroy old chart if it exists
             let chartStatus = Chart.getChart("myChart"); 
             if (chartStatus != undefined) {
                 chartStatus.destroy();
             }
 
             new Chart(ctx, {
-                type: 'bar', // Try 'line', 'pie', 'doughnut'
+                type: 'line', // Changed to 'line' for variety
                 data: {
                     labels: labels,
                     datasets: [{
-                        label: 'Data from Excel',
+                        label: 'CSV Data',
                         data: values,
-                        backgroundColor: 'rgba(54, 162, 235, 0.6)',
-                        borderColor: 'rgba(54, 162, 235, 1)',
-                        borderWidth: 1
+                        backgroundColor: 'rgba(255, 99, 132, 0.2)',
+                        borderColor: 'rgba(255, 99, 132, 1)',
+                        borderWidth: 2,
+                        tension: 0.4 // Makes the line curved and smooth
                     }]
                 },
                 options: {
