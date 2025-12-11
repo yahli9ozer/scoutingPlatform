@@ -3,118 +3,328 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Scouting Platform Live</title>
+    <title>Scouting Platform Pro</title>
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Rubik:wght@400;500;700&display=swap" rel="stylesheet">
+    
     <style>
-        body { background-color: #f8f9fa; padding: 20px; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; }
-        th, td { text-align: right; vertical-align: middle; }
-        .status-v { background-color: #d1e7dd; color: #0f5132; padding: 2px 8px; border-radius: 4px; font-weight: bold; }
-        .status-x { background-color: #f8d7da; color: #842029; padding: 2px 8px; border-radius: 4px; font-weight: bold; }
-        .status-q { background-color: #fff3cd; color: #664d03; padding: 2px 8px; border-radius: 4px; font-weight: bold; }
-        .add-btn { position: fixed; bottom: 30px; left: 30px; border-radius: 50%; width: 60px; height: 60px; font-size: 30px; box-shadow: 0 4px 10px rgba(0,0,0,0.3); z-index: 1000; }
+        :root {
+            /* THEME VARIABLES - DARK GREEN & WHITE */
+            --primary-dark: #0f3d3e;  /* Deep Scouting Green */
+            --primary-light: #185c5d; /* Lighter Green */
+            --accent: #2ecc71;        /* Bright Success Green */
+            --bg-color: #f4f6f8;      /* Clean Light Background */
+            --card-shadow: 0 10px 30px rgba(0,0,0,0.08);
+            --text-main: #2c3e50;
+        }
+
+        body {
+            background-color: var(--bg-color);
+            font-family: 'Rubik', sans-serif; /* Modern Hebrew-friendly font */
+            color: var(--text-main);
+            padding-bottom: 80px; /* Space for FAB */
+        }
+
+        /* --- NAVBAR --- */
+        .navbar-custom {
+            background: linear-gradient(135deg, var(--primary-dark), var(--primary-light));
+            padding: 1rem 0;
+            box-shadow: 0 4px 15px rgba(15, 61, 62, 0.3);
+        }
+        .navbar-brand {
+            font-weight: 700;
+            font-size: 1.5rem;
+            color: white !important;
+            letter-spacing: 0.5px;
+        }
+
+        /* --- STAT CARDS --- */
+        .stat-card {
+            background: white;
+            border-radius: 16px;
+            padding: 25px;
+            border: none;
+            box-shadow: var(--card-shadow);
+            transition: transform 0.2s ease;
+            position: relative;
+            overflow: hidden;
+        }
+        .stat-card:hover {
+            transform: translateY(-5px);
+        }
+        /* Green accent line on top */
+        .stat-card::after {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 4px;
+            background: var(--primary-dark);
+        }
+        .stat-number {
+            font-size: 2.5rem;
+            font-weight: 700;
+            color: var(--primary-dark);
+            margin: 0;
+        }
+        .stat-label {
+            color: #7f8c8d;
+            font-weight: 500;
+            font-size: 0.9rem;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+        }
+
+        /* --- TABLE DESIGN --- */
+        .table-container {
+            background: white;
+            border-radius: 16px;
+            padding: 20px;
+            box-shadow: var(--card-shadow);
+            margin-top: 30px;
+            overflow: hidden; /* Corners */
+        }
+        .custom-table thead {
+            background-color: var(--primary-dark);
+        }
+        .custom-table thead th {
+            color: white;
+            font-weight: 500;
+            border: none;
+            padding: 15px;
+        }
+        .custom-table tbody td {
+            padding: 15px;
+            vertical-align: middle;
+            border-bottom: 1px solid #eee;
+            color: #34495e;
+            font-size: 0.95rem;
+        }
+        .custom-table tbody tr:hover {
+            background-color: #f8fcfb; /* Very subtle green tint */
+        }
+        .player-name {
+            font-weight: 700;
+            color: var(--primary-dark);
+        }
+
+        /* --- BADGES --- */
+        .badge-custom {
+            padding: 6px 12px;
+            border-radius: 50px; /* Pill shape */
+            font-size: 0.8rem;
+            font-weight: 600;
+            display: inline-block;
+            min-width: 30px;
+            text-align: center;
+        }
+        .status-v { background-color: #d1e7dd; color: #0f5132; }
+        .status-x { background-color: #f8d7da; color: #842029; }
+        .status-q { background-color: #fff3cd; color: #664d03; }
+        .badge-pos { background-color: #ecf0f1; color: #2c3e50; }
+        .badge-league { border: 1px solid #e2e6ea; color: #555; background: #fff; }
+
+        /* --- BUTTONS & FAB --- */
+        .btn-tm {
+            background-color: #002d72; /* Transfermarkt Blue */
+            color: white;
+            border-radius: 6px;
+            padding: 4px 12px;
+            font-size: 0.8rem;
+            text-decoration: none;
+            transition: opacity 0.2s;
+        }
+        .btn-tm:hover { color: white; opacity: 0.9; }
+
+        .add-btn {
+            position: fixed;
+            bottom: 30px;
+            left: 30px;
+            width: 65px;
+            height: 65px;
+            border-radius: 50%;
+            background: linear-gradient(135deg, var(--primary-dark), #145e5f);
+            color: white;
+            border: none;
+            box-shadow: 0 6px 20px rgba(15, 61, 62, 0.4);
+            font-size: 32px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            transition: all 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+            z-index: 100;
+        }
+        .add-btn:hover {
+            transform: scale(1.1) rotate(90deg);
+        }
+
+        /* --- MODAL --- */
+        .modal-content {
+            border-radius: 16px;
+            border: none;
+            overflow: hidden;
+        }
+        .modal-header {
+            background-color: var(--primary-dark);
+            color: white;
+        }
+        .modal-title { font-weight: 700; }
+        .btn-close { filter: invert(1); } /* White close button */
         
-        /* Loading Spinner for the fetch */
-        .spinner-border { width: 1.5rem; height: 1.5rem; display: none; }
+        /* Auto-Fetch Box Styling */
+        .fetch-box {
+            background: #e8f6f3;
+            border: 1px solid #d1eae5;
+            border-radius: 10px;
+            padding: 15px;
+        }
+        .form-control:focus, .form-select:focus {
+            border-color: var(--primary-dark);
+            box-shadow: 0 0 0 0.25rem rgba(15, 61, 62, 0.15);
+        }
+        
+        /* Loader */
         .loading .spinner-border { display: inline-block; }
+        .spinner-border { display: none; }
     </style>
 </head>
 <body>
 
-    <div class="container">
-        <h1 class="text-center mb-4">⚽ Scouting Database</h1>
+    <nav class="navbar navbar-custom sticky-top mb-5">
+        <div class="container">
+            <span class="navbar-brand">
+                ⚽ Scouting<span style="font-weight:300; opacity:0.8">Platform</span>
+            </span>
+            </div>
+    </nav>
 
-        <div class="row mb-4 text-center">
+    <div class="container">
+        
+        <div class="row g-4 mb-4">
             <div class="col-md-6">
-                <div class="card p-3">
-                    <h3>סה"כ שחקנים</h3>
-                    <h2 id="total-count">0</h2>
+                <div class="stat-card d-flex justify-content-between align-items-center">
+                    <div>
+                        <div class="stat-label">שחקנים במאגר</div>
+                        <h2 class="stat-number" id="total-count">0</h2>
+                    </div>
+                    <div style="font-size: 3rem; opacity: 0.1;">📋</div>
                 </div>
             </div>
             <div class="col-md-6">
-                <div class="card p-3">
-                    <h3>מטרות חמות</h3>
-                    <h2 id="top-targets-count" class="text-success">0</h2>
+                <div class="stat-card d-flex justify-content-between align-items-center">
+                    <div>
+                        <div class="stat-label">מטרות חמות (3+ אישורים)</div>
+                        <h2 class="stat-number text-success" id="top-targets-count">0</h2>
+                    </div>
+                    <div style="font-size: 3rem; opacity: 0.1;">🔥</div>
                 </div>
             </div>
         </div>
 
-        <div class="card shadow-sm">
+        <div class="table-container">
+            <h4 class="mb-4 fw-bold" style="color: var(--primary-dark);">רשימת מועמדים</h4>
             <div class="table-responsive">
-                <table class="table table-hover mb-0">
-                    <thead class="table-dark">
+                <table class="table custom-table mb-0">
+                    <thead>
                         <tr>
-                            <th>שם</th>
-                            <th>גיל</th> <th>ליגה</th> <th>עמדה</th>
-                            <th>יזהר</th>
-                            <th>רמי</th>
-                            <th>אבידן</th>
-                            <th>יהלי</th>
-                            <th>דאטה</th>
+                            <th style="width: 18%;">שם השחקן</th>
+                            <th style="width: 5%;">גיל</th>
+                            <th>ליגה</th>
+                            <th>עמדה</th>
+                            <th class="text-center">יזהר</th>
+                            <th class="text-center">רמי</th>
+                            <th class="text-center">אבידן</th>
+                            <th class="text-center">יהלי</th>
+                            <th class="text-center">דאטה</th>
                             <th>פרופיל</th>
-                            <th>מחיקה</th>
+                            <th style="width: 5%;"></th>
                         </tr>
                     </thead>
-                    <tbody id="table-body"></tbody>
+                    <tbody id="table-body">
+                        </tbody>
                 </table>
             </div>
+            <p id="empty-msg" class="text-center text-muted mt-4" style="display:none;">
+                המאגר ריק כרגע. לחץ על + כדי להוסיף שחקן.
+            </p>
         </div>
     </div>
 
-    <button class="btn btn-primary add-btn" data-bs-toggle="modal" data-bs-target="#addModal">+</button>
+    <button class="add-btn" data-bs-toggle="modal" data-bs-target="#addModal">
+        <span>+</span>
+    </button>
 
-    <div class="modal fade" id="addModal" tabindex="-1">
-        <div class="modal-dialog">
+    <div class="modal fade" id="addModal" tabindex="-1" aria-hidden="true">
+        <div class="modal-dialog modal-dialog-centered">
             <div class="modal-content">
                 <div class="modal-header">
                     <h5 class="modal-title">הוספת שחקן חדש</h5>
-                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
                 </div>
-                <div class="modal-body">
+                <div class="modal-body p-4">
                     <form id="addPlayerForm">
                         
-                        <div class="alert alert-info p-2">
-                            <label class="small fw-bold">הדבק לינק ל-Transfermarkt</label>
+                        <div class="fetch-box mb-4">
+                            <label class="form-label small fw-bold text-dark">משיכה אוטומטית (Transfermarkt)</label>
                             <div class="input-group">
-                                <input type="url" id="pLink" class="form-control" placeholder="https://www.transfermarkt.com/..." required>
-                                <button type="button" class="btn btn-dark" id="btnFetch">
-                                    <span class="spinner-border spinner-border-sm text-light" role="status"></span>
-                                    חפש נתונים
+                                <input type="url" id="pLink" class="form-control" placeholder="הדבק לינק כאן..." style="background: white;">
+                                <button type="button" class="btn btn-dark" id="btnFetch" style="background-color: var(--primary-dark); border:none;">
+                                    חפש
                                 </button>
                             </div>
-                            <small class="text-muted">המערכת תמלא לבד את השם, גיל וליגה</small>
-                        </div>
-
-                        <div class="mb-3">
-                            <label class="form-label">שם השחקן</label>
-                            <input type="text" id="pName" class="form-control" required>
-                        </div>
-                        
-                        <div class="row">
-                            <div class="col-6 mb-3">
-                                <label class="form-label">גיל</label>
-                                <input type="text" id="pAge" class="form-control">
-                            </div>
-                            <div class="col-6 mb-3">
-                                <label class="form-label">ליגה</label>
-                                <input type="text" id="pLeague" class="form-control">
+                            <div class="form-text text-muted small mt-1">
+                                המערכת תנסה למלא שם, גיל וליגה באופן אוטומטי.
                             </div>
                         </div>
 
                         <div class="mb-3">
-                            <label class="form-label">עמדה</label>
-                            <input type="text" id="pPos" class="form-control">
+                            <label class="form-label fw-bold small text-muted">פרטים אישיים</label>
+                            <input type="text" id="pName" class="form-control form-control-lg" placeholder="שם השחקן" required>
                         </div>
                         
-                        <div class="row g-2 mb-3">
-                            <div class="col-6"><label class="small">יזהר</label><select id="pS1" class="form-select"><option value="-">-</option><option value="V">V</option><option value="X">X</option><option value="?">?</option></select></div>
-                            <div class="col-6"><label class="small">רמי</label><select id="pS2" class="form-select"><option value="-">-</option><option value="V">V</option><option value="X">X</option><option value="?">?</option></select></div>
-                            <div class="col-6"><label class="small">אבידן</label><select id="pS3" class="form-select"><option value="-">-</option><option value="V">V</option><option value="X">X</option><option value="?">?</option></select></div>
-                            <div class="col-6"><label class="small">יהלי</label><select id="pS4" class="form-select"><option value="-">-</option><option value="V">V</option><option value="X">X</option><option value="?">?</option></select></div>
+                        <div class="row g-3 mb-3">
+                            <div class="col-6">
+                                <input type="text" id="pAge" class="form-control" placeholder="גיל">
+                            </div>
+                            <div class="col-6">
+                                <input type="text" id="pLeague" class="form-control" placeholder="ליגה">
+                            </div>
                         </div>
 
-                        <div class="mb-3"><label class="form-label">דאטה</label><select id="pData" class="form-select"><option value="-">-</option><option value="V">V</option><option value="X">X</option></select></div>
+                        <div class="mb-4">
+                            <input type="text" id="pPos" class="form-control" placeholder="עמדה (למשל: כנף שמאל)">
+                        </div>
                         
-                        <button type="submit" class="btn btn-success w-100">שמור במאגר</button>
+                        <label class="form-label fw-bold small text-muted mb-2">סטטוס סקאוטינג</label>
+                        <div class="row g-2 mb-4 bg-light p-3 rounded">
+                            <div class="col-3 text-center">
+                                <label class="small d-block mb-1">יזהר</label>
+                                <select id="pS1" class="form-select form-select-sm"><option value="-">-</option><option value="V">V</option><option value="X">X</option><option value="?">?</option></select>
+                            </div>
+                            <div class="col-3 text-center">
+                                <label class="small d-block mb-1">רמי</label>
+                                <select id="pS2" class="form-select form-select-sm"><option value="-">-</option><option value="V">V</option><option value="X">X</option><option value="?">?</option></select>
+                            </div>
+                            <div class="col-3 text-center">
+                                <label class="small d-block mb-1">אבידן</label>
+                                <select id="pS3" class="form-select form-select-sm"><option value="-">-</option><option value="V">V</option><option value="X">X</option><option value="?">?</option></select>
+                            </div>
+                            <div class="col-3 text-center">
+                                <label class="small d-block mb-1">יהלי</label>
+                                <select id="pS4" class="form-select form-select-sm"><option value="-">-</option><option value="V">V</option><option value="X">X</option><option value="?">?</option></select>
+                            </div>
+                            <div class="col-12 mt-2">
+                                <label class="small d-block mb-1">דאטה</label>
+                                <select id="pData" class="form-select form-select-sm"><option value="-">-</option><option value="V">V</option><option value="X">X</option></select>
+                            </div>
+                        </div>
+
+                        <div class="d-grid">
+                            <button type="submit" class="btn btn-success btn-lg" style="background-color: var(--accent); border:none;">
+                                שמור במאגר
+                            </button>
+                        </div>
                     </form>
                 </div>
             </div>
@@ -123,5 +333,6 @@
 
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
     <script type="module" src="app.js"></script>
+
 </body>
 </html>
