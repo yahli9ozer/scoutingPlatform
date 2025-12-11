@@ -19,7 +19,10 @@ const app = initializeApp(firebaseConfig);
 const db = getFirestore(app);
 const playersCol = collection(db, "players");
 
-// --- AUTO FILL LOGIC (UPDATED FOR YOUR HTML) ---
+
+
+
+// --- AUTO FILL LOGIC (SMARTER VERSION) ---
 const btnFetch = document.getElementById('btnFetch');
 const inputLink = document.getElementById('pLink');
 
@@ -28,81 +31,87 @@ if(btnFetch) {
         const url = inputLink.value;
         if(!url) { alert("נא להדביק לינק קודם"); return; }
 
-        // Start Loading Animation
+        // 1. Loading State
         btnFetch.classList.add('loading');
         btnFetch.disabled = true;
         const originalText = btnFetch.innerHTML;
-        btnFetch.innerHTML = `<span class="spinner-border spinner-border-sm" role="status"></span> טוען...`;
+        btnFetch.innerHTML = `<span class="spinner-border spinner-border-sm" role="status"></span> מחפש...`;
 
         try {
-            // using corsproxy.io (often faster/better than allorigins)
-            const proxyUrl = `https://corsproxy.io/?${encodeURIComponent(url)}`;
+            // 2. Use AllOrigins (Returns JSON, often bypasses blocks better)
+            const proxyUrl = `https://api.allorigins.win/get?url=${encodeURIComponent(url)}`;
             
             const response = await fetch(proxyUrl);
-            if (!response.ok) throw new Error("Network response was not ok");
+            const data = await response.json();
             
-            const htmlText = await response.text();
-            
-            // Convert text to HTML Document
+            if (!data.contents) throw new Error("ריק");
+
+            // 3. Parse HTML
             const parser = new DOMParser();
-            const doc = parser.parseFromString(htmlText, "text/html");
+            const doc = parser.parseFromString(data.contents, "text/html");
 
-            // --- 1. GET NAME (Fix: Remove Shirt Number #8) ---
-            let name = "Unknown";
-            const headerBox = doc.querySelector('.data-header__headline-wrapper');
-            if(headerBox) {
-                // We clone the element to modify it without breaking anything
-                const clone = headerBox.cloneNode(true);
-                // Find and remove the shirt number span (e.g. #8)
-                const numberSpan = clone.querySelector('.data-header__shirt-number');
-                if(numberSpan) numberSpan.remove();
-                
-                name = clone.innerText.trim(); 
-                // Cleanup: remove extra spaces or newlines
-                name = name.replace(/\s+/g, ' ').trim();
-            }
-
-            // --- 2. GET AGE (Fix: Extract from "(25)") ---
+            // --- STRATEGY A: META TAGS (Most Reliable) ---
+            // Example Description: "Dominik Szoboszlai, 24, from Hungary... "
+            let name = "";
             let age = "";
-            // Based on your HTML: <span itemprop="birthDate"> 25/10/2000 (25) </span>
-            const birthSpan = doc.querySelector('[itemprop="birthDate"]');
-            if(birthSpan) {
-                const text = birthSpan.innerText; // "25/10/2000 (25)"
-                const match = text.match(/\((\d+)\)/); // Regex to find number inside ()
-                if(match && match[1]) {
-                    age = match[1];
+            let league = "";
+            let position = "";
+
+            const metaDesc = doc.querySelector('meta[name="description"]')?.content || "";
+            const ogTitle = doc.querySelector('meta[property="og:title"]')?.content || "";
+
+            console.log("Debug Meta:", metaDesc); // Check console if it fails
+
+            if (metaDesc) {
+                // NAME: usually the first words before the first comma
+                const parts = metaDesc.split(','); 
+                if(parts.length > 0) name = parts[0].trim();
+
+                // AGE: usually the second part "Dominik Szoboszlai, 24, from..."
+                if(parts.length > 1) {
+                    const potentialAge = parts[1].trim();
+                    if(!isNaN(potentialAge)) age = potentialAge;
                 }
             }
 
-            // --- 3. GET LEAGUE ---
-            let league = "";
-            // Based on your HTML: <span class="data-header__league">...Premier League...</span>
-            const leagueSpan = doc.querySelector('.data-header__league');
-            if(leagueSpan) {
-                league = leagueSpan.innerText.trim();
+            // Fallback for Name if Meta failed (Title usually: "Dominik Szoboszlai - Player profile...")
+            if (!name && ogTitle) {
+                name = ogTitle.split('-')[0].trim();
             }
 
-            // --- 4. FILL THE INPUTS ---
-            if(name === "Unknown" && age === "") {
-                throw new Error("Could not parse data");
+            // --- STRATEGY B: VISIBLE HTML (Fallback) ---
+            // If Meta tags didn't give us everything, try the visual elements
+            if (!league) {
+                const leagueHeader = doc.querySelector('.data-header__league');
+                if (leagueHeader) league = leagueHeader.innerText.trim();
+            }
+            
+            if (!position) {
+                 // Try to find position in the details box
+                 const labels = Array.from(doc.querySelectorAll('.data-header__label'));
+                 const posLabel = labels.find(el => el.innerText.includes('Position:'));
+                 if(posLabel) {
+                     position = posLabel.nextElementSibling?.innerText.trim();
+                 }
             }
 
-            document.getElementById('pName').value = name;
-            document.getElementById('pAge').value = age;
-            document.getElementById('pLeague').value = league;
+            // --- 4. FILL INPUTS ---
+            if(name) document.getElementById('pName').value = name;
+            if(age) document.getElementById('pAge').value = age;
+            if(league) document.getElementById('pLeague').value = league;
+            if(position) document.getElementById('pPos').value = position;
 
         } catch (error) {
-            console.error(error);
-            alert("שגיאה במשיכת נתונים. ייתכן שהאתר חוסם גישה או שהלינק לא תקין.\nנא למלא ידנית.");
+            console.error("Fetch Error:", error);
+            alert("Transfermarkt חסם את הבקשה או שהלינק לא תקין.\n\nטיפ: נסה למחוק את ה-Cookies או לנסות לינק אחר.");
         } finally {
-            // Stop Loading
+            // Reset Button
             btnFetch.classList.remove('loading');
             btnFetch.disabled = false;
             btnFetch.innerHTML = originalText;
         }
     });
 }
-
 
 // --- SAVE PLAYER (Standard) ---
 const form = document.getElementById('addPlayerForm');
