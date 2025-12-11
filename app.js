@@ -31,8 +31,15 @@ const MY_PROXY_URL = "https://script.google.com/macros/s/AKfycbyzu1vV2RTxhlGf8lk
 
 if(btnFetch) {
     btnFetch.addEventListener('click', async () => {
-        const url = inputLink.value;
+        let url = inputLink.value;
         if(!url) { alert("נא להדביק לינק קודם"); return; }
+
+        // --- THE FIX: FORCE .COM ---
+        // This replaces .pt, .de, .co.uk, etc. with .com
+        // It ensures we always get the English page so our scraper works.
+        if (url.includes('transfermarkt')) {
+            url = url.replace(/transfermarkt\.[a-z.]+(\/)/, 'transfermarkt.com$1');
+        }
 
         // Loading UI
         btnFetch.classList.add('loading');
@@ -41,7 +48,7 @@ if(btnFetch) {
         btnFetch.innerHTML = `<span class="spinner-border spinner-border-sm" role="status"></span> מחפש...`;
 
         try {
-            // 1. Call YOUR Google Script
+            // Call Proxy with the FIXED (.com) URL
             const finalUrl = `${MY_PROXY_URL}?url=${encodeURIComponent(url)}`;
             const response = await fetch(finalUrl);
             const data = await response.json();
@@ -49,35 +56,32 @@ if(btnFetch) {
             if (data.error) throw new Error("Google Script Error: " + data.error);
             if (!data.html) throw new Error("Empty result");
 
-            // 2. Parse the HTML
+            // Parse HTML
             const parser = new DOMParser();
             const doc = parser.parseFromString(data.html, "text/html");
 
-            // --- EXTRACTION LOGIC ---
+            // --- EXTRACTION LOGIC (Now safer because it's always English) ---
             
             // A. NAME
             let name = "";
             const h1 = doc.querySelector('h1');
             if (h1) {
-                // Remove the #number if it exists
                 let cleanName = h1.innerText.replace(/#\d+/, '').trim();
-                // Sometimes Transfermarkt repeats the name in strong tags, just clean it up
                 name = cleanName.replace(/\s+/g, ' '); 
             }
 
             // B. AGE
-            // Strategy: Look for the specific "Age:" label in the table
             let age = "";
+            // Look for "Date of birth/Age" (English label)
             const labels = Array.from(doc.querySelectorAll('.info-table__content--regular'));
-            const ageLabel = labels.find(el => el.innerText.includes('Date of birth/Age'));
+            const ageLabel = labels.find(el => el.innerText.includes('Date of birth/Age')); 
+            
             if(ageLabel) {
-                // The value is usually in the NEXT sibling or inside the same container
                 const val = ageLabel.nextElementSibling?.innerText || ageLabel.innerText;
-                // Look for number in parens (24)
                 const match = val.match(/\((\d+)\)/); 
                 if(match) age = match[1];
             }
-            // Fallback for Age (Microdata)
+            // Fallback (Microdata)
             if(!age) {
                 const birthSpan = doc.querySelector('[itemprop="birthDate"]');
                 if(birthSpan) {
@@ -93,12 +97,13 @@ if(btnFetch) {
 
             // D. POSITION
             let position = "";
+            // Look for "Position" (English label)
             const posLabel = labels.find(el => el.innerText.includes('Position'));
             if(posLabel) {
                  position = posLabel.nextElementSibling?.innerText.trim();
             }
 
-            // 3. FILL INPUTS
+            // FILL INPUTS
             if(name) document.getElementById('pName').value = name;
             if(age) document.getElementById('pAge').value = age;
             if(league) document.getElementById('pLeague').value = league;
@@ -106,7 +111,7 @@ if(btnFetch) {
 
         } catch (error) {
             console.error(error);
-            alert("לא הצלחנו למשוך נתונים. הלינק תקין? \n(הערה: אם זה קורה תמיד, Google נחסם זמנית על ידי Transfermarkt)");
+            alert("לא הצלחנו למשוך נתונים.");
         } finally {
             btnFetch.classList.remove('loading');
             btnFetch.disabled = false;
@@ -114,8 +119,6 @@ if(btnFetch) {
         }
     });
 }
-
-
 
 // --- SAVE PLAYER (Standard) ---
 const form = document.getElementById('addPlayerForm');
